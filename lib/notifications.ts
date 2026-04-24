@@ -3,7 +3,6 @@ import { Shift, User } from "@prisma/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@example.com";
 
 type ShiftWithStaff = Shift & { staff: User };
@@ -19,6 +18,8 @@ export async function notifyShiftChange(
   shift: ShiftWithStaff,
   action: NotifyAction
 ): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const staff = shift.staff;
   if (!staff.email) return;
 
