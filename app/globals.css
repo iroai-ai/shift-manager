@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* FullCalendar カスタムスタイル */
+.fc .fc-button {
+  @apply bg-blue-600 border-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1;
+}
+.fc .fc-button-active {
+  @apply bg-blue-800 border-blue-800;
+}
+.fc .fc-button-group .fc-button {
+  @apply rounded-none first:rounded-l-lg last:rounded-r-lg;
+}
+.fc .fc-today-button:disabled {
+  @apply opacity-60 cursor-not-allowed;
+}
+.fc-event {
+  @apply cursor-pointer transition-opacity hover:opacity-80;
+}
+.fc-event-title {
+  @apply font-medium;
+}
