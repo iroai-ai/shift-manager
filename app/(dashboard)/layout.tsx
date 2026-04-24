@@ -1,11 +1,12 @@
+export const runtime = "edge";
+
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/auth";
 import Link from "next/link";
 import { SignOutButton } from "@/components/SignOutButton";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session) redirect("/auth/signin");
 
   return (

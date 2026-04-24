@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import { ShiftCalendar } from "@/components/ShiftCalendar";
 
 export default function DashboardPage() {

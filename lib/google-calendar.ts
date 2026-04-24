@@ -1,16 +1,62 @@
-import { google } from "googleapis";
 import { Shift, User } from "@prisma/client";
 import { getGoogleAccessToken } from "@/lib/auth";
 
 const RETRY_LIMIT = 3;
 const APP_NAME = "ShiftManager";
+const BASE = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 
 type ShiftWithStaff = Shift & { staff: User };
 
-function buildCalendarClient(accessToken: string) {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
-  return google.calendar({ version: "v3", auth });
+interface CalendarEventBody {
+  summary: string;
+  description: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  colorId: string;
+  extendedProperties: { private: Record<string, string> };
+  attendees?: { email: string }[];
+  sendUpdates?: string;
+}
+
+function buildEventBody(shift: ShiftWithStaff): CalendarEventBody {
+  const body: CalendarEventBody = {
+    summary: `[シフト] ${shift.staff.name ?? "スタッフ"} - ${shift.role}`,
+    description: shift.note ?? "",
+    start: { dateTime: shift.startTime.toISOString() },
+    end: { dateTime: shift.endTime.toISOString() },
+    colorId: roleToColorId(shift.role),
+    extendedProperties: {
+      private: { shiftId: shift.id, appName: APP_NAME, staffId: shift.staffId },
+    },
+  };
+  if (shift.staff.email) {
+    body.attendees = [{ email: shift.staff.email }];
+    body.sendUpdates = "all";
+  }
+  return body;
+}
+
+async function calendarFetch(
+  url: string,
+  method: string,
+  accessToken: string,
+  body?: unknown
+): Promise<Response> {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const err: any = new Error(`Google Calendar API error ${res.status}: ${text}`);
+    err.code = res.status;
+    throw err;
+  }
+  return res;
 }
 
 async function withRetry<T>(fn: () => Promise<T>, retries = RETRY_LIMIT): Promise<T> {
@@ -31,34 +77,10 @@ export async function createCalendarEvent(shift: ShiftWithStaff, userId: string)
   const accessToken = await getGoogleAccessToken(userId);
   if (!accessToken) throw new Error("No Google access token");
 
-  const calendar = buildCalendarClient(accessToken);
-
   return withRetry(async () => {
-    const event = await calendar.events.insert({
-      calendarId: "primary",
-      requestBody: {
-        summary: `[シフト] ${shift.staff.name ?? "スタッフ"} - ${shift.role}`,
-        description: shift.note ?? "",
-        start: { dateTime: shift.startTime.toISOString() },
-        end: { dateTime: shift.endTime.toISOString() },
-        colorId: roleToColorId(shift.role),
-        extendedProperties: {
-          private: {
-            shiftId: shift.id,
-            appName: APP_NAME,
-            staffId: shift.staffId,
-          },
-        },
-        ...(shift.staff.email
-          ? {
-              attendees: [{ email: shift.staff.email }],
-              sendUpdates: "all",
-            }
-          : {}),
-      },
-    });
-
-    return event.data.id!;
+    const res = await calendarFetch(BASE, "POST", accessToken, buildEventBody(shift));
+    const data = await res.json() as { id: string };
+    return data.id;
   });
 }
 
@@ -70,33 +92,8 @@ export async function updateCalendarEvent(
   const accessToken = await getGoogleAccessToken(userId);
   if (!accessToken) throw new Error("No Google access token");
 
-  const calendar = buildCalendarClient(accessToken);
-
   await withRetry(() =>
-    calendar.events.update({
-      calendarId: "primary",
-      eventId: googleEventId,
-      requestBody: {
-        summary: `[シフト] ${shift.staff.name ?? "スタッフ"} - ${shift.role}`,
-        description: shift.note ?? "",
-        start: { dateTime: shift.startTime.toISOString() },
-        end: { dateTime: shift.endTime.toISOString() },
-        colorId: roleToColorId(shift.role),
-        extendedProperties: {
-          private: {
-            shiftId: shift.id,
-            appName: APP_NAME,
-            staffId: shift.staffId,
-          },
-        },
-        ...(shift.staff.email
-          ? {
-              attendees: [{ email: shift.staff.email }],
-              sendUpdates: "all",
-            }
-          : {}),
-      },
-    })
+    calendarFetch(`${BASE}/${googleEventId}`, "PUT", accessToken, buildEventBody(shift))
   );
 }
 
@@ -104,14 +101,8 @@ export async function deleteCalendarEvent(googleEventId: string, userId: string)
   const accessToken = await getGoogleAccessToken(userId);
   if (!accessToken) throw new Error("No Google access token");
 
-  const calendar = buildCalendarClient(accessToken);
-
   await withRetry(() =>
-    calendar.events.delete({
-      calendarId: "primary",
-      eventId: googleEventId,
-      sendUpdates: "all",
-    })
+    calendarFetch(`${BASE}/${googleEventId}?sendUpdates=all`, "DELETE", accessToken)
   );
 }
 

@@ -1,11 +1,12 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const runtime = "edge";
+
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session?.user?.id) redirect("/auth/signin");
 
   const user = await prisma.user.findUnique({
