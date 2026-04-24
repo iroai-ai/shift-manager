@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin, { DateClickArg, EventDropArg } from "@fullcalendar/interaction";
-import { EventClickArg, EventResizeDoneArg } from "@fullcalendar/core";
+import interactionPlugin, { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction";
+import { EventClickArg, EventDropArg } from "@fullcalendar/core";
 import { format } from "date-fns";
 import { ShiftModal } from "./ShiftModal";
 
