@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -15,13 +13,14 @@ const updateShiftSchema = z.object({
   note: z.string().optional(),
 });
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.shift.findUnique({ where: { id: params.id } });
+  const existing = await prisma.shift.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -32,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const data = parsed.data;
   const updated = await prisma.shift.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(data.staffId && { staffId: data.staffId }),
       ...(data.startTime && { startTime: new Date(data.startTime) }),
@@ -55,10 +54,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     syncStatus = "FAILED";
   }
 
-  await prisma.shift.update({ where: { id: params.id }, data: { syncStatus } });
+  await prisma.shift.update({ where: { id }, data: { syncStatus } });
   await prisma.calendarSyncLog.create({
     data: {
-      shiftId: params.id,
+      shiftId: id,
       userId: session.user.id,
       action: "UPDATE",
       status: syncStatus,
@@ -71,14 +70,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ ...updated, syncStatus });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const shift = await prisma.shift.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { staff: true },
   });
   if (!shift) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -96,7 +96,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   await prisma.calendarSyncLog.create({
     data: {
-      shiftId: params.id,
+      shiftId: id,
       userId: session.user.id,
       action: "DELETE",
       status: syncStatus,
@@ -106,7 +106,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   notifyShiftChange(shift, "deleted").catch(console.error);
 
-  await prisma.shift.delete({ where: { id: params.id } });
+  await prisma.shift.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NotificationSettings } from "@/components/NotificationSettings";

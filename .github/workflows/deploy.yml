@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Pages
+name: Deploy to Cloudflare Workers
 
 on:
   push:
@@ -22,14 +22,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npx @cloudflare/next-on-pages
-        env:
-          NODE_ENV: production
+      - name: Build Next.js
+        run: npm run build
 
-      - name: Deploy to Cloudflare Pages
+      - name: Build for Cloudflare Workers
+        run: npx opennextjs-cloudflare build
+
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: df63d5d1b25aa0cd99eb873916ba4592
-          command: pages deploy .vercel/output/static --project-name=shift-manager --commit-dirty=true
+          command: deploy
+          secrets: |
+            DATABASE_URL
+            NEXTAUTH_SECRET
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            AUTH_URL
+            RESEND_API_KEY
+            RESEND_FROM_EMAIL
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          AUTH_URL: ${{ secrets.AUTH_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}

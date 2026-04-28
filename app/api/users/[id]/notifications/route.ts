@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -11,12 +9,13 @@ const schema = z.object({
   notifyOnDelete: z.boolean().optional(),
 });
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.id !== params.id) {
+  if (session.user.id !== id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -27,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const updated = await prisma.user.update({
-    where: { id: params.id },
+    where: { id },
     data: parsed.data,
     select: { notifyOnCreate: true, notifyOnUpdate: true, notifyOnDelete: true },
   });
